@@ -12,7 +12,7 @@ student_bp = Blueprint("student", __name__)
 # CREATE STUDENT
 # -------------------------
 @student_bp.route("/students", methods=["POST"])
-@token_required
+@token_required(allowed_roles=["admin"])
 def create_student(decoded_user):
     """
     Add a new student
@@ -70,7 +70,7 @@ def get_students(decoded_user):
 # DELETE STUDENT
 # -------------------------
 @student_bp.route("/students/<student_id>", methods=["DELETE"])
-@token_required
+@token_required(allowed_roles=["admin"])
 def remove_student(decoded_user, student_id):
     """
     Delete a student by ID
@@ -92,7 +92,7 @@ def remove_student(decoded_user, student_id):
 # UPDATE STUDENT
 # -------------------------
 @student_bp.route("/students/<student_id>", methods=["PUT"])
-@token_required
+@token_required(allowed_roles=["admin"])
 def update_student_route(decoded_user, student_id):
     """
     Update a student by ID

@@ -29,6 +29,7 @@ def login():
         token = jwt.encode(
             {
                 "user": username,
+                "role": "admin",
                 "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
             },
             SECRET_KEY,
