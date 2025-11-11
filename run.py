@@ -2,6 +2,7 @@ from flask import Flask, g
 from flasgger import Swagger
 from app.routes.student_routes import student_bp
 from app.db import init_db
+from app.routes.auth_routes import auth_bp
 import logging
 
 
@@ -16,6 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app=Flask(__name__) 
+app.register_blueprint(auth_bp, url_prefix="/auth")
 Swagger(app)
 app.register_blueprint(student_bp)
 

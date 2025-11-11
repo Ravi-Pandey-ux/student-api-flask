@@ -1,49 +1,24 @@
 from flask import Blueprint, request, jsonify
 from app.models.student import Student
-from app.services.student_service import add_student, get_all_students, delete_student,update_student
+from app.services.student_service import add_student, get_all_students, delete_student, update_student
 import logging
+from app.utils.token_decorator import token_required
 
 logger = logging.getLogger(__name__)
 student_bp = Blueprint("student", __name__)
 
+
+# -------------------------
+# CREATE STUDENT
+# -------------------------
 @student_bp.route("/students", methods=["POST"])
-def create_student():
+@token_required
+def create_student(decoded_user):
     """
     Add a new student
-    ---
-    tags:
-      - Students
-    parameters:
-      - in: body
-        name: student
-        schema:
-          type: object
-          required:
-            - id
-            - name
-            - grade
-            - subjects
-          properties:
-            id:
-              type: string
-            name:
-              type: string
-            grade:
-              type: string
-            subjects:
-              type: array
-              items:
-                type: string
-    responses:
-      201:
-        description: Student added successfully
-      400:
-        description: Duplicate student
-      500:
-        description: Internal Server Error
-    """    
+    """
     data = request.get_json()
-    logger.info(f"POST /students called with data: {data}")
+    logger.info(f"POST /students called by {decoded_user['user']} with data: {data}")
 
     subjects_value = ",".join(data["subjects"]) if isinstance(data["subjects"], list) else data["subjects"]
 
@@ -57,44 +32,25 @@ def create_student():
     try:
         add_student(student)
         logger.info("Student added successfully")
-        return jsonify({"message": "Student added"}), 201
-    except ValueError as ve:   # ✅ catch duplicate student error
+        return jsonify({"message": f"Student added by {decoded_user['user']}"}), 201
+    except ValueError as ve:
         logger.error(f"Duplicate student: {ve}")
-        return jsonify({"error": str(ve)}), 400   # ✅ return 400 instead of 500
+        return jsonify({"error": str(ve)}), 400
     except Exception as e:
         logger.error(f"Error adding student: {e}")
         return jsonify({"error": "Internal Server Error"}), 500
-    
 
+
+# -------------------------
+# GET STUDENTS
+# -------------------------
 @student_bp.route("/students", methods=["GET"])
-def get_students():
+@token_required
+def get_students(decoded_user):
     """
     Get all students
-    ---
-    tags:
-      - Students
-    responses:
-      200:
-        description: List of students
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              grade:
-                type: string
-              subjects:
-                type: string
-      500:
-        description: Internal Server Error
     """
-    logger.info("GET /students called")
-    ...    
-    logger.info("GET /students called")
+    logger.info(f"GET /students called by {decoded_user['user']}")
     try:
         students = get_all_students()
         logger.info(f"Fetched {len(students)} students")
@@ -106,97 +62,58 @@ def get_students():
 
         return jsonify(result), 200
     except Exception as e:
-        logger.error(f"Error fetching students: {e}")  
+        logger.error(f"Error fetching students: {e}")
         return jsonify({"error": "Internal Server Error"}), 500
 
 
+# -------------------------
+# DELETE STUDENT
+# -------------------------
 @student_bp.route("/students/<student_id>", methods=["DELETE"])
-def remove_student(student_id):
+@token_required
+def remove_student(decoded_user, student_id):
     """
     Delete a student by ID
-    ---
-    tags:
-      - Students
-    parameters:
-      - in: path
-        name: student_id
-        type: string
-        required: true
-    responses:
-      200:
-        description: Student deleted successfully
-      404:
-        description: Student not found
-      500:
-        description: Internal Server Error
-    """    
-    logger.info(f"DELETE /students/{student_id} called")
+    """
+    logger.info(f"DELETE /students/{student_id} called by {decoded_user['user']}")
     try:
-        deleted = delete_student(student_id)   # ✅ check return value
-        if not deleted:                       # ✅ student not found
+        deleted = delete_student(student_id)
+        if not deleted:
             logger.warning(f"Student with ID {student_id} not found")
             return jsonify({"error": "Student not found"}), 404
-        logger.warning(f"Student deleted with ID: {student_id}")
-        return jsonify({"message": "Student deleted"}), 200
+        logger.info(f"Student deleted with ID: {student_id}")
+        return jsonify({"message": f"Student deleted by {decoded_user['user']}"}), 200
     except Exception as e:
         logger.error(f"Error deleting student {student_id}: {e}")
         return jsonify({"error": "Internal Server Error"}), 500
 
 
+# -------------------------
+# UPDATE STUDENT
+# -------------------------
 @student_bp.route("/students/<student_id>", methods=["PUT"])
-def update_student_route(student_id):
+@token_required
+def update_student_route(decoded_user, student_id):
     """
     Update a student by ID
-    ---
-    tags:
-      - Students
-    parameters:
-      - in: path
-        name: student_id
-        type: string
-        required: true
-      - in: body
-        name: student
-        schema:
-          type: object
-          required:
-            - name
-            - grade
-            - subjects
-          properties:
-            name:
-              type: string
-            grade:
-              type: string
-            subjects:
-              type: array
-              items:
-                type: string
-    responses:
-      200:
-        description: Student updated successfully
-      404:
-        description: Student not found
-      500:
-        description: Internal Server Error
-    """    
+    """
     data = request.get_json()
-    logger.info(f"PUT /students/{student_id} called with data: {data}")
+    logger.info(f"PUT /students/{student_id} called by {decoded_user['user']} with data: {data}")
 
     subjects_value = ",".join(data["subjects"]) if isinstance(data["subjects"], list) else data["subjects"]
 
     student = Student(
-        id=student_id,   # ✅ keep ID from URL
+        id=student_id,
         name=data["name"],
         grade=data["grade"],
         subjects=subjects_value
     )
 
     try:
-        updated = update_student(student_id, student)   # ✅ call service
+        updated = update_student(student_id, student)
         if not updated:
-            return jsonify({"error": "Student not found"}), 404   # ✅ return 404
-        return jsonify({"message": "Student updated"}), 200       # ✅ return 200
+            return jsonify({"error": "Student not found"}), 404
+        return jsonify({"message": f"Student updated by {decoded_user['user']}"}), 200
     except Exception as e:
         logger.error(f"Error updating student {student_id}: {e}")
         return jsonify({"error": "Internal Server Error"}), 500
