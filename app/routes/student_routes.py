@@ -7,12 +7,11 @@ from app.utils.token_decorator import token_required
 logger = logging.getLogger(__name__)
 student_bp = Blueprint("student", __name__)
 
-
 # -------------------------
-# CREATE STUDENT
+# CREATE STUDENT (Admin only)
 # -------------------------
 @student_bp.route("/students", methods=["POST"])
-@token_required(allowed_roles=["admin"])
+@token_required(allowed_roles=["admin"])   # ✅ RBAC enforced
 def create_student(decoded_user):
     """
     Add a new student
@@ -23,7 +22,6 @@ def create_student(decoded_user):
     subjects_value = ",".join(data["subjects"]) if isinstance(data["subjects"], list) else data["subjects"]
 
     student = Student(
-        id=data["id"],
         name=data["name"],
         grade=data["grade"],
         subjects=subjects_value
@@ -32,7 +30,15 @@ def create_student(decoded_user):
     try:
         add_student(student)
         logger.info("Student added successfully")
-        return jsonify({"message": f"Student added by {decoded_user['user']}"}), 201
+        return jsonify({
+            "message": f"Student added by {decoded_user['user']}",
+            "student": {
+                "id": student.id,
+                "name": student.name,
+                "grade": student.grade,
+                "subjects": student.subjects
+            }
+        }), 201
     except ValueError as ve:
         logger.error(f"Duplicate student: {ve}")
         return jsonify({"error": str(ve)}), 400
@@ -42,10 +48,10 @@ def create_student(decoded_user):
 
 
 # -------------------------
-# GET STUDENTS
+# GET STUDENTS (Any logged-in user)
 # -------------------------
 @student_bp.route("/students", methods=["GET"])
-@token_required
+@token_required()   # ✅ JWT required, any role allowed
 def get_students(decoded_user):
     """
     Get all students
@@ -56,9 +62,10 @@ def get_students(decoded_user):
         logger.info(f"Fetched {len(students)} students")
 
         result = [
-            {"id": s[0], "name": s[1], "grade": s[2], "subjects": s[3]}
-            for s in students
-        ]
+          {"id": s.id, "name": s.name, "grade": s.grade, "subjects": s.subjects}
+          for s in students
+       ]
+
 
         return jsonify(result), 200
     except Exception as e:
@@ -67,10 +74,10 @@ def get_students(decoded_user):
 
 
 # -------------------------
-# DELETE STUDENT
+# DELETE STUDENT (Admin only)
 # -------------------------
 @student_bp.route("/students/<student_id>", methods=["DELETE"])
-@token_required(allowed_roles=["admin"])
+@token_required(allowed_roles=["admin"])   # ✅ RBAC enforced
 def remove_student(decoded_user, student_id):
     """
     Delete a student by ID
@@ -89,10 +96,10 @@ def remove_student(decoded_user, student_id):
 
 
 # -------------------------
-# UPDATE STUDENT
+# UPDATE STUDENT (Admin only)
 # -------------------------
 @student_bp.route("/students/<student_id>", methods=["PUT"])
-@token_required(allowed_roles=["admin"])
+@token_required(allowed_roles=["admin"])   # ✅ RBAC enforced
 def update_student_route(decoded_user, student_id):
     """
     Update a student by ID
@@ -112,7 +119,9 @@ def update_student_route(decoded_user, student_id):
     try:
         updated = update_student(student_id, student)
         if not updated:
+            logger.warning(f"Student with ID {student_id} not found")
             return jsonify({"error": "Student not found"}), 404
+        logger.info(f"Student updated with ID: {student_id}")
         return jsonify({"message": f"Student updated by {decoded_user['user']}"}), 200
     except Exception as e:
         logger.error(f"Error updating student {student_id}: {e}")

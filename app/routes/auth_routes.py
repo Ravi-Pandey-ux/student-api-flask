@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
-import jwt
-import datetime
+import jwt,datetime
 from functools import wraps
+from app.models.user import User, db
 
 
 # Create Blueprint
@@ -9,6 +9,32 @@ auth_bp = Blueprint("auth", __name__)
 
 # Secret key (later move to config or environment variable)
 SECRET_KEY = "super_secret_key"
+@auth_bp.route("/signup", methods=["POST"])
+def signup():
+    """
+    Signup route: creates a new user with hashed password and role.
+    Body: { "username": "...", "password": "...", "role": "admin|user" }
+    """ 
+    data=request.get_json()
+    username=data.get("username")
+    password=data.get("password")
+    role= data.get("role","user") 
+
+    if not username or not password:
+        return jsonify({"error" : "username and password required"}), 400
+
+    if User.query.filter_by(username=username).first():
+        return jsonify({"error": "Username already exists"}), 400 
+    
+    new_user = User(username=username, role=role)
+    new_user.set_password(password)
+
+    db.session.add(new_user)
+    db.session.commit()    
+
+    return jsonify({"message": f"User {username} created successfully with role {role}"}), 201
+
+
 
 
 # -------------------------
@@ -24,20 +50,21 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
-    # Dummy authentication (replace with DB check)
-    if username == "ravi" and password == "password123":
-        token = jwt.encode(
-            {
-                "user": username,
-                "role": "admin",
-                "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
-            },
-            SECRET_KEY,
-            algorithm="HS256"
-        )
-        return jsonify({"token": token})
-
-    return jsonify({"message": "Invalid credentials"}), 401
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.check_password(password):
+        return jsonify({"error": "Invalid credentials"}), 401 
+     
+    token = jwt.encode(
+# Dummy authentication (replace with DB check)
+        {
+            "user": user.username,
+            "role": user.role,
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+        },
+        SECRET_KEY,
+        algorithm="HS256"
+    )
+    return jsonify({"token": token})
 
 
 # -------------------------
