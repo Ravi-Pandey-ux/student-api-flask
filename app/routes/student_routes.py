@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
-from app.models.student import Student
-from app.services.student_service import add_student, get_all_students, delete_student, update_student
+from ..services.student_service import add_student, get_all_students, delete_student, update_student
+from ..models.student import Student
+from .. import db
+
 import logging
 from app.utils.token_decorator import token_required
 
@@ -54,20 +56,33 @@ def create_student(decoded_user):
 @token_required()   # ✅ JWT required, any role allowed
 def get_students(decoded_user):
     """
-    Get all students
+    Get students with pagination
     """
     logger.info(f"GET /students called by {decoded_user['user']}")
     try:
-        students = get_all_students()
-        logger.info(f"Fetched {len(students)} students")
+        # ✅ Read query params (defaults: page=1, limit=10)
+        page = request.args.get("page", 1, type=int)
+        limit = request.args.get("limit", 10, type=int)
 
+        # ✅ Paginate query directly from Student model
+        students = Student.query.paginate(page=page, per_page=limit, error_out=False)
+
+        logger.info(f"Fetched {len(students.items)} students on page {students.page}")
+
+        # ✅ Format response
         result = [
-          {"id": s.id, "name": s.name, "grade": s.grade, "subjects": s.subjects}
-          for s in students
-       ]
+            {"id": s.id, "name": s.name, "grade": s.grade, "subjects": s.subjects}
+            for s in students.items
+        ]
 
+        return jsonify({
+            "page": students.page,
+            "pages": students.pages,
+            "total": students.total,
+            "per_page": students.per_page,
+            "students": result
+        }), 200
 
-        return jsonify(result), 200
     except Exception as e:
         logger.error(f"Error fetching students: {e}")
         return jsonify({"error": "Internal Server Error"}), 500

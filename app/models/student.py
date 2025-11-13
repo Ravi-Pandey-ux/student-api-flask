@@ -1,4 +1,6 @@
-from app import db
+from .. import db    # ✅ relative import from parent package
+from flask_sqlalchemy import SQLAlchemy   # ✅ relative import from parent package
+from datetime import datetime
 
 class Student(db.Model):
     __tablename__ = "students"

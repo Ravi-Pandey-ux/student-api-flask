@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
 import jwt,datetime
 from functools import wraps
-from app.models.user import User, db
+from ..models.user import User
+from .. import db
 
 
 # Create Blueprint

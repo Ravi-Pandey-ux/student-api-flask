@@ -1,6 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash ,check_password_hash
-from app import db
+from .. import db    # ✅ relative import from parent package
+ 
+
 
 class User(db.Model):
     __tablename__="users"
